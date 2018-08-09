@@ -1,4 +1,7 @@
+apply plugin: 'maven'
 apply plugin: 'kotlin'
+
+group = 'com.github.swarmnyc.promisekt'
 
 dependencies {
     testImplementation 'junit:junit:4.12'
