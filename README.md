@@ -32,6 +32,18 @@ the main different of promisekt-android is that promisekt-android uses Looper.ge
 
 
 # How to
+
+1. [Create root Promise objects](#1-create-root-promise-objects)
+1. [States](#2-states)
+1. [Create children Promise objects](#3-create-children-promise-objects)
+1. [Multiple Children](#4-multiple-children)
+1. [Handle multiple Promise objects](#5-handle-multiple-promise-objects)
+1. [Cancel and Timeout](#6-cancel-and-timeout)
+1. [Uncaught Error](#7-uncaught-error)
+1. [Threads](#8-threads)
+1. [Options](#9-options)
+1. [proguard settings](#10-proguard-settings)
+
 ## 1. Create root Promise objects
 There are four ways to create root Promise objects:
 
@@ -371,7 +383,7 @@ Promise<String> (options) { resolve, reject ->
 Promise.defaultOptions.uiExecutor = Executor { command ->  command.run() }
 ```
 
-## 10. proguard
+## 10. proguard settings
 This is settings for proguard
 
 ```
