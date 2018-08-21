@@ -19,3 +19,7 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+-keep class com.swarmnyc.promisekt.** { *; }
+-keep interface com.swarmnyc.promisekt.** { *; }
+-dontnote com.swarmnyc.promisekt.**
