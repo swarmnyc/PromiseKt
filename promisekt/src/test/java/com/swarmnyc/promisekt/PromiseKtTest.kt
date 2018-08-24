@@ -782,4 +782,23 @@ class PromiseTest {
 
         assertEquals("efg", result)
     }
+
+    @Test
+    fun catchThenTest() {
+        // then after catch
+        val latch = CountDownLatch(1)
+        var result: String? = null
+
+        Promise.resolve("abc")
+                .catch {
+                    fail()
+                }.then {
+                    result = it
+                    latch.countDown()
+                }
+
+        latch.await()
+
+        assertEquals("abc", result)
+    }
 }

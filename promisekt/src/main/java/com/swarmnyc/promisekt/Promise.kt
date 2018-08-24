@@ -432,7 +432,7 @@ class Promise<V> {
         log { "Catch called" }
 
         return Promise<V>(this.options, this).also { promise ->
-            this.handle(PromiseHandler(null) {
+            this.handle(PromiseHandler(promise::resolve) {
                 val action = Runnable {
                     try {
                         promise.log { "FailHandler called" }
