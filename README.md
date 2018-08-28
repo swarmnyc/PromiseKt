@@ -1,5 +1,5 @@
 # PromiseKt
-A simple and easy to use of Promise library for Kotlin on JVM and Android.
+A simple and easy to use version of Promise library for Kotlin on JVM and Android.
 
 
 # Installation For Gradle
@@ -28,7 +28,7 @@ dependencies {
 }
 ```
 
-the main different of promisekt-android is that promisekt-android uses Looper.getMainLooper() switches threads to the UI thread when executing the handlers of `.thenUi` and `.catchUi`
+The main difference of promisekt-android is that it uses Looper.getMainLooper() to switch threads to the UI thread when executing the handlers of `.thenUi` and `.catchUi`
 
 
 # How to
@@ -49,7 +49,7 @@ There are four ways to create root Promise objects:
 
 - `Promise<T>(executor: (resolve: (T)->Unit, reject: (Throwable) -> Unit))`
 
-This way is the same way of using Promise in Javascript. For example,
+This method is the same way that you would use Promise in Javascript. For example,
 
 ``` kotlin
 val p = Promise<String> { resolve, reject ->
@@ -61,7 +61,7 @@ val p = Promise<String> { resolve, reject ->
 
 - `Promise<T>(executor: (promise:Promise<T>))`
 
-This way gives you more control of the Promise object. For example,
+This method gives you more control of the Promise object. For example:
 
 ``` kotlin
 val p = Promise<Int> { promise ->
@@ -73,7 +73,7 @@ val p = Promise<Int> { promise ->
 
 - `Promise.resolve<T>(value: T): Promise<T>`
 
-This way returns a fulfilled Promise object directly. For example,
+This method returns a fulfilled Promise object directly. For example:
 
 ``` kotlin
 val p = Promise.resolve("Foo")
@@ -81,7 +81,7 @@ val p = Promise.resolve("Foo")
 
 - `Promise.reject(error: Throwable): Promise<*>`
 
-This way returns a rejected Promise object directly. For example,
+This method returns a rejected Promise object directly. For example:
 
 ``` kotlin
 val p = Promise.reject(Exception("Bar"))
@@ -92,10 +92,10 @@ val p = Promise.reject(Exception("Bar"))
 Each Promise has 3 states:
 - Pending: the default state of a new Promise object.
 - Fulfilled: once the `resolve` method of a Promise object is called, the Promise object changes to this state.
-- Rejected: once the `reject` method of a Promise object is called or a exception thrown, the Promise object changes to this state. 
+- Rejected: once the `reject` method of a Promise object is called or an exception is thrown, the Promise object changes to this state. 
 
-Once a Promise object finishes execution, the state changes to either fulfilled or rejected. Then, it invokes its children Promise objects. 
-Also, once the state of the promise object is changed, the state cannot be changed again. Fore example, 
+Once a Promise object finishes its execution, the state changes to either fulfilled or rejected. Then, it invokes its children Promise objects. 
+Also, once the state of the promise object is changed, the state cannot be changed again. Fore example: 
 
 ``` kotlin
 Promise<String> { resolve, reject ->
@@ -112,7 +112,7 @@ There are 6 ways to create children Promise objects:
 
 - `promise<T>.then(action: (result:T)-> R): Promise<R>`
 
-This method create a new children Promise object with a different result type. Once its parent Promise object is fulfilled, the action invokes. For example,
+This method create a new children Promise object with a different result type. Once its parent Promise object is fulfilled, the action invokes. For example:
 
 ``` kotlin
 Promise<Int> { resolve, _ ->
@@ -128,7 +128,7 @@ Promise<Int> { resolve, _ ->
 
 - `promise<T>.thenUi(action: (result:T)-> R): Promise<R>`
 
-This method serves as same as `.then`, but the action is executed by the UI thread for Android. For example,
+This method serves the same purpose as `.then`, but the action is instead executed by the UI thread for Android. For example:
 
 ``` kotlin
 Promise<Int> { resolve, _ ->
@@ -139,11 +139,11 @@ Promise<Int> { resolve, _ ->
 }
 ```
 
-However, JVM doesn't have any UI thread, so the action is executed on a new thread for JVM.
+However, JVM doesn't have any UI threads associated with it, so the action is executed on a new thread (as seen below). 
 
 - `promise<T>.catch(action: (error:Throwable)-> Unit): Promise<T>`
 
-This method create a new children Promise object with a the same result type. Once its parent Promise object is rejected, the action invokes. For example,
+This method create a new child Promise object with the same action as a result. Once its parent Promise object is rejected, the action invokes. For example:
 
 ``` kotlin
 Promise<Int> { _, reject ->
@@ -155,7 +155,7 @@ Promise<Int> { _, reject ->
 }
 ```
 
-Once a Promise object is rejected, all its children are rejected too. Also, if an exception is thrown during a catch action, the error changes to the exception. For example,
+Once a Promise object is rejected, all of its children are rejected too. Also, if an exception is thrown during a catch action, the error changes to the exception. For example:
 
 ``` kotlin
 val error1 = Exception("Foo")
@@ -174,12 +174,12 @@ Promise.reject(error1).catch {
 
 - `promise<T>.catchUi(action: (error:Throwable)-> Unit): Promise<T>`
 
-This method serves as same as `.catch`, but the action is executed by the UI thread for Android.
+This method serves the same purpose as `.catch`, but the action is instead executed by the UI thread for Android.
 
 
 - `promise<T>.thenChain(action: (result:T)-> R): Promise<R>`
 
-This method is similar to `.then`, but it can unwrap the return value if it is another Promise object. For example,
+This method is similar to `.then`, but it can unwrap the return value if it is a different Promise object. For example:
 
 ``` kotlin
 fun method1(): Promise<Int> { ... }
@@ -208,11 +208,11 @@ p1.then {
 
 - `promise<T>.thenChainUi(action: (result:T)-> R): Promise<R>`
 
-This method serves as same as `.thenChain`, but the action is executed by the UI thread for Android.
+This method serves the same purpose as `.thenChain`, but the action is instead executed by the UI thread for Android.
 
 ## 4. Multiple Children
 
-Each Promise objects can have multiple children Promise objects. For example,
+Each Promise objects can have multiple children Promise objects. For example:
 
 ``` kotlin
 val p1: Promise<Int> = Promise { resolve, _ ->
@@ -236,12 +236,12 @@ val p4: Promise<Double> = p2.then { // it = "Foo"
 
 ## 5. Handle multiple Promise objects
 
-There are 2 ways of handling multiple Promise objects.
+There are two ways of handling multiple Promise objects:
 
 - `Promise.all(vararg promises: Promise<*>): Promise<Array<Any>>`
 - `Promise.all(promises: Collection<Promise<*>>): Promise<Array<Any>>`
 
-These methods wraps all given Promise objects and return a new Promise object. It is fulfilled when all given Promise objects are fulfilled and it is rejected when one of them is rejected. The result of this Promise object is a list that contains all of the result of all given Promise objects. The order of list is the same as the given Promise objects, too. For example,
+These methods wrap all given Promise objects and return a new Promise object. It is fulfilled when all given Promise objects are fulfilled and it is rejected when one of them is rejected. The result of this Promise object is a list that contains all of the results of all of the given Promise objects. The order of the list is the same as the given Promise objects, too. For example:
 
 ``` kotlin
 val p1 = Promise { resolve, _ ->
@@ -264,7 +264,7 @@ Promise.all(p1, p2).then {
 - `Promise.race(vararg promises: Promise<*>): Promise<Any>`
 - `Promise.race(promises: Collection<Promise<*>>): Promise<Any>`
 
-This method wraps all given Promise objects and return a new Promise object. It is fulfilled or rejected when the first finished Promise object is fulfilled or rejected. For example,
+This method wraps all given Promise objects and returns a new Promise object. It is fulfilled or rejected when the first finished Promise object is either fulfilled or rejected. For example:
 
 ``` kotlin
 val p1 = Promise { resolve, _ ->
@@ -283,10 +283,10 @@ Promise.race(p1, p2).then {
 ```
 
 ## 6. Cancel and Timeout
-PromiseKt supports cancel and timeout. 
+PromiseKt supports cancel and timeout: 
 
 - `promise.cancel(throwError: Boolean = false)`
-This method cancels the execution by interrupting the execution thread if the thread isn't finished. Once the method is called, the state changed to rejected. If the parameter `throwError` is false, then the InterruptedException is ignored. Otherwise, the InterruptedException is thrown and it can be catch by `.catch`. For example,
+This method cancels the execution by interrupting the execution thread if the thread hasn't finished. Once the method is called, the state is changed to "rejected". If the parameter `throwError` is false, then the InterruptedException is ignored. Otherwise, the InterruptedException is thrown and it can be caught by `.catch`. For example:
 ``` kotlin
 val p = Promise { resolve, _ ->
     Thread.sleep(1000)
@@ -300,7 +300,7 @@ p.cancel(true)
 
 - `promise<T>.timeout(timeMs: Long, throwError: Boolean = false): Promise<T>`
 
-This method sets a timer and delays for the given time. After delaying, if the state of the Promise object is still pending, calls `.cancel(throwError)`. For example,
+This method sets a timer and places a delay for the given time. After delaying, and if the state of the Promise object is still pending, it calls `.cancel(throwError)`. For example:
 
 ``` kotlin
 Promise { resolve, _ ->
@@ -311,11 +311,11 @@ Promise { resolve, _ ->
 }.timeout(500, true)
 ```
 
-By default, if `.timeout` isn't called, Promise objects run forever until resolve or reject is called.
+By default, if `.timeout` isn't called, Promise objects will run forever until resolved or reject is called.
 
 ## 7. Uncaught Error
 
-If there is a error which isn't caught, then the error passes to `Promise.uncaught`. The default handler does logging it and throwing it again. Therefore, by default, if there is an uncaught error, it causes the program crash. In order to avoid it, you can set your handler to handle uncaught error. For example,
+If there is a error which isn't caught, then the error passes to `Promise.uncaught`. The default handler logs the error and throws it again. Therefore, by default, if there is an uncaught error, it causes the program to crash. In order to avoid it, you can set your handler to handle uncaught errors. For example:
 
 ``` kotlin
 // there two situations cause uncaught errors
@@ -341,7 +341,7 @@ Promise.uncaughtError = {
 
 ## 8. Threads
 
-Each root Promise objects use its own thread and the children Promise objects use the thread as its parent unless using one of .thenUi, .thenChainUi or .catchUi to create the children Promise objects. For example,
+Each root Promise object uses its own thread while the children Promise objects use the thread as its parent (unless using one of .thenUi, .thenChainUi or .catchUi to create the children Promise object). For example:
 
 ``` kotlin
 // the current Thread id is 1
@@ -365,7 +365,7 @@ Promise<String> { resolve, reject ->
 
 ## 9. Options
 
-By default, if you don't assign a specific options, every Promise objects use the default options and the children Promise objects use the same options as its parent. For example,
+By default, if you don't assign a specific option, every Promise object uses the default option and the children Promise objects use the same options as its parent. For example:
 
 ``` kotlin
 // define a new options
@@ -384,7 +384,7 @@ Promise.defaultOptions.uiExecutor = Executor { command ->  command.run() }
 ```
 
 ## 10. proguard settings
-This is settings for proguard
+These are the settings for proguard:
 
 ```
 -keep class com.swarmnyc.promisekt.** { *; }
