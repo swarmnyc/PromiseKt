@@ -143,25 +143,24 @@ class Promise<V> {
     private val parent: Promise<*>?
     private var shouldThrowErrorOnCancel = false
     private var value: V? = null
-    private var executedAt: Long = 0
     private val id: String by lazy {
         "Promise@${options.idCounter.incrementAndGet()}"
     }
 
     private var thenChainPromise: Promise<*>? = null
-    private var errorCatched = false
+    private var errorCaught = false
+    private var errorRoot = false //  true if this promise is the root promise that has error
     internal var shouldThrowUncaughtError = true
-    internal var state = AtomicInteger(PromiseState.Pending.ordinal)
+    internal var mState = AtomicInteger(PromiseState.Pending.ordinal)
 
     private fun execute() {
         log { "Execute called" }
 
-        executedAt = System.currentTimeMillis()
         executor?.let {
             future = options.executor.submit {
                 // delay for the main thread add .then and .catch handler
                 log { "Executing" }
-
+                errorRoot = true
                 try {
                     it(this)
                     log { "Executed" }
@@ -175,16 +174,18 @@ class Promise<V> {
         }
     }
 
-    val isDone: Boolean
-        get() = state.get() != PromiseState.Pending.ordinal
+    val state: PromiseState
+        get () {
+            return PromiseState.valueOf(mState.get())!!
+        }
 
     fun resolve(v: V) {
-        log { "Resolve called, State=${PromiseState.valueOf(state.get())}, Handlers=${handlers.size}, Value=$v" }
+        log { "Resolve called, State=$state, Handlers=${handlers.size}, Value=$v" }
 
-        if (state.get() != PromiseState.Pending.ordinal) return
+        if (mState.get() != PromiseState.Pending.ordinal) return
 
         value = v
-        state.set(PromiseState.Fulfilled.ordinal)
+        mState.set(PromiseState.Fulfilled.ordinal)
 
         handlers.forEach(::handle)
 
@@ -193,21 +194,21 @@ class Promise<V> {
 
     fun reject(e: Throwable) {
         log {
-            "Reject called, State=${PromiseState.valueOf(state.get())}, Handlers=${handlers.size}, " +
+            "Reject called, State=${state}, Handlers=${handlers.size}, " +
                     "Error=$e, ThrowErrorOnCancel=$shouldThrowErrorOnCancel, " +
                     "ThrowUncaughtError=$shouldThrowUncaughtError"
         }
 
-        when (state.get()) {
+        when (mState.get()) {
             PromiseState.Canceled.ordinal -> {
                 if (!shouldThrowErrorOnCancel) {
                     return
                 }
 
-                state.set(PromiseState.RejectedOnCancel.ordinal)
+                mState.set(PromiseState.RejectedOnCancel.ordinal)
             }
             PromiseState.Pending.ordinal -> {
-                state.set(PromiseState.Rejected.ordinal)
+                mState.set(PromiseState.Rejected.ordinal)
             }
             else -> return
         }
@@ -226,7 +227,7 @@ class Promise<V> {
     }
 
     private fun handle(handler: PromiseHandler<V>) {
-        when (state.get()) {
+        when (mState.get()) {
             PromiseState.Pending.ordinal -> {
                 log { "Handle pending, add a handler" }
                 handlers.add(handler)
@@ -243,7 +244,6 @@ class Promise<V> {
             }
             PromiseState.Rejected.ordinal, PromiseState.RejectedOnCancel.ordinal -> {
                 log { "Handle rejected" }
-                errorCatched = true
                 handler.failHandler?.let {
                     it(error!!)
                 }
@@ -256,9 +256,19 @@ class Promise<V> {
         options.executor.submit {
             // try 50 ms
             for (i in 1..5) {
-                if (errorCatched) {
-                    log { "Error caught" }
-                    return@submit
+                // check parent promise has caught error or not
+                var p: Promise<*>? = this
+                while (p != null) {
+                    if (p.errorCaught) {
+                        log { "Handle uncaught and error caught" }
+                        return@submit
+                    }
+
+                    if (p.errorRoot) {
+                        break
+                    }
+
+                    p = p.parent
                 }
 
                 log { "Wait for catch, i=$i" }
@@ -278,22 +288,22 @@ class Promise<V> {
     fun cancel(throwError: Boolean = false) {
         log {
             buildString {
-                append("Cancel called, State=${PromiseState.valueOf(state.get())}, Future=")
+                append("Cancel called, State=$state, Future=")
 
                 if (future == null) {
                     append("null")
                 } else {
                     future?.also {
-                        append("isDone=${it.isDone},isCancelled=${it.isCancelled}")
+                        append("isFulfilled=${it.isDone},isCancelled=${it.isCancelled}")
                     }
                 }
             }
         }
 
-        if (state.get() != PromiseState.Pending.ordinal) return
+        if (mState.get() != PromiseState.Pending.ordinal) return
 
         shouldThrowErrorOnCancel = throwError
-        state.set(PromiseState.Canceled.ordinal)
+        mState.set(PromiseState.Canceled.ordinal)
 
         // also cancel child promise
         thenChainPromise?.also {
@@ -323,18 +333,18 @@ class Promise<V> {
      * if the running time over the given time, cancel the promise
      */
     fun timeout(ms: Long, throwError: Boolean = false): Promise<V> {
-        log { "Timeout called, State=${PromiseState.valueOf(state.get())}" }
-        if (state.get() != PromiseState.Pending.ordinal) return this
+        log { "Timeout called, State=state" }
+        if (mState.get() != PromiseState.Pending.ordinal) return this
 
         this.options.executor.submit {
             Thread.sleep(ms)
 
-            if (state.get() == PromiseState.Pending.ordinal) {
+            if (mState.get() == PromiseState.Pending.ordinal) {
                 log { "Timeout, canceling" }
 
                 cancel(throwError)
             } else {
-                log { "Timeout, invalid, State=${PromiseState.valueOf(state.get())}" }
+                log { "Timeout, invalid, State=$state" }
             }
         }
 
@@ -360,6 +370,7 @@ class Promise<V> {
                         promise.resolve(thenAction(it))
                     } catch (e: Throwable) {
                         log { "ThenAction failed" }
+                        promise.errorRoot = true
                         promise.reject(e)
                     }
                 }
@@ -403,7 +414,7 @@ class Promise<V> {
                         }
                     } catch (e: Throwable) {
                         promise.log { "ThenChainAction failed" }
-
+                        promise.errorRoot = true
                         promise.reject(e)
                     }
                 }
@@ -431,6 +442,7 @@ class Promise<V> {
     private fun catchInternal(failHandler: FailHandler, threadExecutor: Executor?): Promise<V> {
         log { "Catch called" }
 
+        makeCaught()
         return Promise<V>(this.options, this).also { promise ->
             this.handle(PromiseHandler(promise::resolve) {
                 val action = Runnable {
@@ -441,6 +453,7 @@ class Promise<V> {
                         promise.reject(it)
                     } catch (e: Throwable) {
                         promise.log { "FailHandler failed" }
+                        promise.errorRoot = true
                         promise.reject(e)
                     }
                 }
@@ -451,6 +464,16 @@ class Promise<V> {
                     threadExecutor.execute(action)
                 }
             })
+        }
+    }
+
+    private inline fun makeCaught(){
+        // make parent promise objects flag caught
+        var p: Promise<*>? = this
+        while (p != null && !p.errorCaught ) {
+            p.errorCaught = true
+
+            p = p.parent
         }
     }
 

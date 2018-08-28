@@ -4,10 +4,12 @@ import com.swarmnyc.promisekt.Promise
 import com.swarmnyc.promisekt.PromiseState
 import com.swarmnyc.promisekt.util.await
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 @RunWith(JUnit4::class)
@@ -18,6 +20,11 @@ class PromiseTest {
 
     init {
 //        Promise.defaultOptions.debugMode = true
+    }
+
+    @Before
+    fun before(){
+        Promise.uncaughtError = { throw it }
     }
 
     @Test
@@ -402,18 +409,18 @@ class PromiseTest {
         val then1Thread = AtomicLong(0)
         val then2Thread = AtomicLong(0)
 
-        System.out.println("Main Thread Id : ${Thread.currentThread().id}")
+//        System.out.println("Main Thread Id : ${Thread.currentThread().id}")
 
         val promise = Promise<Unit> { resolve, _ ->
             Thread.sleep(100)
-            System.out.println("executor Thread Id : ${Thread.currentThread().id}")
+//            System.out.println("executor Thread Id : ${Thread.currentThread().id}")
             executorThread.set(Thread.currentThread().id)
             resolve(Unit)
         }.then {
-            System.out.println("Then 1 Thread Id : ${Thread.currentThread().id}")
+//            System.out.println("Then 1 Thread Id : ${Thread.currentThread().id}")
             then1Thread.set(Thread.currentThread().id)
         }.thenUi {
-            System.out.println("Then 2 Thread Id : ${Thread.currentThread().id}")
+//            System.out.println("Then 2 Thread Id : ${Thread.currentThread().id}")
             then2Thread.set(Thread.currentThread().id)
         }
 
@@ -421,17 +428,17 @@ class PromiseTest {
         val then3Thread = AtomicLong(0)
         val then4Thread = AtomicLong(0)
 
-        System.out.println("Main Thread Id : ${Thread.currentThread().id}")
+//        System.out.println("Main Thread Id : ${Thread.currentThread().id}")
 
         val promise2 = Promise<Unit> { resolve, _ ->
-            System.out.println("executor Thread Id : ${Thread.currentThread().id}")
+//            System.out.println("executor Thread Id : ${Thread.currentThread().id}")
             executor2Thread.set(Thread.currentThread().id)
             resolve(Unit)
         }.then {
-            System.out.println("Then 1 Thread Id : ${Thread.currentThread().id}")
+//            System.out.println("Then 1 Thread Id : ${Thread.currentThread().id}")
             then3Thread.set(Thread.currentThread().id)
         }.thenUi {
-            System.out.println("Then 2 Thread Id : ${Thread.currentThread().id}")
+//            System.out.println("Then 2 Thread Id : ${Thread.currentThread().id}")
             then4Thread.set(Thread.currentThread().id)
         }
 
@@ -583,7 +590,7 @@ class PromiseTest {
 
         latch.await()
 
-        assertEquals(PromiseState.Canceled.ordinal, p.state.get())
+        assertEquals(PromiseState.Canceled.ordinal, p.mState.get())
     }
 
     @Test
@@ -800,5 +807,57 @@ class PromiseTest {
         latch.await()
 
         assertEquals("abc", result)
+    }
+
+    @Test
+    fun catchForkTest() {
+        // one parent (error), two children (one then, one catch)
+        val error = Throwable("Test")
+        val count = AtomicInteger()
+        Promise.uncaughtError = {
+            count.incrementAndGet()
+        }
+
+        val promise = Promise<Int> { promise ->
+            Thread.sleep(10)
+            promise.reject(error)
+        }
+
+        promise.catch {
+            count.incrementAndGet()
+        }
+
+        promise.then {
+            count.incrementAndGet()
+        }
+
+        Thread.sleep(100)
+        assertEquals(1, count.get())
+    }
+
+    @Test
+    fun catchFork2Test() {
+        // one parent (fulfill), two children (one error no catch, one then)
+        val error = Throwable("Test")
+        val count = AtomicInteger()
+        var result : Throwable? = null
+        Promise.uncaughtError = {
+            result = it
+        }
+
+        val promise = Promise<Int> { promise ->
+            Thread.sleep(10)
+            promise.resolve(1)
+        }
+
+        promise.then {
+            throw error
+        }
+
+        promise.then {
+        }
+
+        Thread.sleep(100)
+        assertEquals(error, result)
     }
 }
