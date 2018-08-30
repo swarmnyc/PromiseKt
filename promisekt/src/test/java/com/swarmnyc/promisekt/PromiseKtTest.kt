@@ -9,6 +9,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
@@ -23,7 +24,7 @@ class PromiseTest {
     }
 
     @Before
-    fun before(){
+    fun before() {
         Promise.uncaughtError = { throw it }
     }
 
@@ -409,18 +410,18 @@ class PromiseTest {
         val then1Thread = AtomicLong(0)
         val then2Thread = AtomicLong(0)
 
-//        System.out.println("Main Thread Id : ${Thread.currentThread().id}")
+        //System.out.println("Main Thread Id : ${Thread.currentThread().id}")
 
         val promise = Promise<Unit> { resolve, _ ->
             Thread.sleep(100)
-//            System.out.println("executor Thread Id : ${Thread.currentThread().id}")
+            //System.out.println("executor Thread Id : ${Thread.currentThread().id}")
             executorThread.set(Thread.currentThread().id)
             resolve(Unit)
         }.then {
-//            System.out.println("Then 1 Thread Id : ${Thread.currentThread().id}")
+            //System.out.println("Then 1 Thread Id : ${Thread.currentThread().id}")
             then1Thread.set(Thread.currentThread().id)
         }.thenUi {
-//            System.out.println("Then 2 Thread Id : ${Thread.currentThread().id}")
+            //System.out.println("Then 2 Thread Id : ${Thread.currentThread().id}")
             then2Thread.set(Thread.currentThread().id)
         }
 
@@ -428,17 +429,17 @@ class PromiseTest {
         val then3Thread = AtomicLong(0)
         val then4Thread = AtomicLong(0)
 
-//        System.out.println("Main Thread Id : ${Thread.currentThread().id}")
+        //System.out.println("Main Thread Id : ${Thread.currentThread().id}")
 
         val promise2 = Promise<Unit> { resolve, _ ->
-//            System.out.println("executor Thread Id : ${Thread.currentThread().id}")
+            //System.out.println("executor Thread Id : ${Thread.currentThread().id}")
             executor2Thread.set(Thread.currentThread().id)
             resolve(Unit)
         }.then {
-//            System.out.println("Then 1 Thread Id : ${Thread.currentThread().id}")
+            //System.out.println("Then 1 Thread Id : ${Thread.currentThread().id}")
             then3Thread.set(Thread.currentThread().id)
         }.thenUi {
-//            System.out.println("Then 2 Thread Id : ${Thread.currentThread().id}")
+            //System.out.println("Then 2 Thread Id : ${Thread.currentThread().id}")
             then4Thread.set(Thread.currentThread().id)
         }
 
@@ -840,7 +841,7 @@ class PromiseTest {
         // one parent (fulfill), two children (one error no catch, one then)
         val error = Throwable("Test")
         val count = AtomicInteger()
-        var result : Throwable? = null
+        var result: Throwable? = null
         Promise.uncaughtError = {
             result = it
         }
@@ -859,5 +860,45 @@ class PromiseTest {
 
         Thread.sleep(100)
         assertEquals(error, result)
+    }
+
+    @Test
+    fun done1Test() {
+        // for then
+        val latch = CountDownLatch(3)
+
+        Promise<Int> { promise ->
+            promise.resolve(1)
+        }.then {
+            latch.countDown()
+        }.then {
+            latch.countDown()
+        }.catch {
+            latch.countDown()
+        }.done {
+            latch.countDown()
+        }
+
+        latch.await(1000, TimeUnit.MILLISECONDS)
+
+        assertEquals(0, latch.count)
+    }
+
+    @Test
+    fun done2Test() {
+        // for catch
+        val latch = CountDownLatch(2)
+
+        Promise<Int> { promise ->
+            promise.reject(Exception("Test"))
+        }.catch {
+            latch.countDown()
+        }.done {
+            latch.countDown()
+        }
+
+        latch.await(1000, TimeUnit.MILLISECONDS)
+
+        assertEquals(0, latch.count)
     }
 }

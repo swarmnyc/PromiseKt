@@ -13,6 +13,7 @@ typealias PromiseExecutor<V> = (promise: Promise<V>) -> Unit
 typealias ThenAction<V, R> = (V) -> R
 typealias ThenChainAction<V, R> = (V) -> Promise<R>
 typealias FailHandler = (Throwable) -> Unit
+typealias DoneHandler = () -> Unit
 
 open class PromiseHandler<V>(val thenAction: ThenAction<V, *>?, val failHandler: FailHandler?)
 
@@ -41,7 +42,7 @@ class Promise<V> {
         }
 
         /**
-         * Return a new Promise and fulfill the promise with the given value immediately.
+         * Return a new Promise and fulfilled the promise with the given value immediately.
          */
         fun <T> resolve(v: T): Promise<T> {
             return Promise<T>().also { promise ->
@@ -49,6 +50,9 @@ class Promise<V> {
             }
         }
 
+        /**
+         * Return a new Promise and rejected the promise with the given error immediately.
+         */
         fun reject(e: Throwable): Promise<Any> {
             return Promise { promise ->
                 promise.shouldThrowUncaughtError = false
@@ -56,14 +60,23 @@ class Promise<V> {
             }
         }
 
+        /**
+         * These methods wrap all given Promise objects and return a new Promise object. It is fulfilled when all given Promise objects are fulfilled and it is rejected when one of them is rejected. The result of this Promise object is a list that contains all of the results of all of the given Promise objects. The order of the list is the same as the given Promise objects, too.
+         */
         fun all(promises: Collection<Promise<*>>): Promise<Array<Any>> {
             return all(defaultOptions, *promises.toTypedArray())
         }
 
+        /**
+         * These methods wrap all given Promise objects and return a new Promise object. It is fulfilled when all given Promise objects are fulfilled and it is rejected when one of them is rejected. The result of this Promise object is a list that contains all of the results of all of the given Promise objects. The order of the list is the same as the given Promise objects, too.
+         */
         fun all(vararg promises: Promise<*>): Promise<Array<Any>> {
             return all(defaultOptions, *promises)
         }
 
+        /**
+         * These methods wrap all given Promise objects and return a new Promise object. It is fulfilled when all given Promise objects are fulfilled and it is rejected when one of them is rejected. The result of this Promise object is a list that contains all of the results of all of the given Promise objects. The order of the list is the same as the given Promise objects, too.
+         */
         fun all(options: PromiseOptions, vararg promises: Promise<*>): Promise<Array<Any>> {
             return Promise(options) { resolve, reject ->
                 val count = AtomicInteger(0)
@@ -83,10 +96,16 @@ class Promise<V> {
             }
         }
 
+        /**
+         * This method wraps all given Promise objects and returns a new Promise object. It is fulfilled or rejected when the first finished Promise object is either fulfilled or rejected.
+         */
         fun race(vararg promises: Promise<*>): Promise<Any> {
             return race(defaultOptions, *promises)
         }
 
+        /**
+         * This method wraps all given Promise objects and returns a new Promise object. It is fulfilled or rejected when the first finished Promise object is either fulfilled or rejected.
+         */
         fun race(options: PromiseOptions, vararg promises: Promise<*>): Promise<Any> {
             return Promise(options) { resolve, reject ->
                 val send = AtomicBoolean(false)
@@ -443,6 +462,7 @@ class Promise<V> {
         log { "Catch called" }
 
         makeCaught()
+
         return Promise<V>(this.options, this).also { promise ->
             this.handle(PromiseHandler(promise::resolve) {
                 val action = Runnable {
@@ -467,10 +487,37 @@ class Promise<V> {
         }
     }
 
-    private inline fun makeCaught(){
+    fun done(doneHandler: DoneHandler) {
+        doneInternal(doneHandler, null)
+    }
+
+    fun doneUi(doneHandler: DoneHandler) {
+        doneInternal(doneHandler, options.uiExecutor)
+    }
+
+    private fun doneInternal(doneHandler: DoneHandler, threadExecutor: Executor?) {
+        log { "Done called" }
+
+        val action = {
+            log { "DoneHandler called" }
+            if (threadExecutor == null) {
+                doneHandler()
+            } else {
+                threadExecutor.execute(doneHandler)
+            }
+        }
+
+        this.handle(PromiseHandler({
+            action()
+        }, {
+            action()
+        }))
+    }
+
+    private fun makeCaught() {
         // make parent promise objects flag caught
         var p: Promise<*>? = this
-        while (p != null && !p.errorCaught ) {
+        while (p != null && !p.errorCaught) {
             p.errorCaught = true
 
             p = p.parent

@@ -37,12 +37,13 @@ The main difference of promisekt-android is that it uses Looper.getMainLooper() 
 1. [States](#2-states)
 1. [Create children Promise objects](#3-create-children-promise-objects)
 1. [Multiple Children](#4-multiple-children)
-1. [Handle multiple Promise objects](#5-handle-multiple-promise-objects)
-1. [Cancel and Timeout](#6-cancel-and-timeout)
-1. [Uncaught Error](#7-uncaught-error)
-1. [Threads](#8-threads)
-1. [Options](#9-options)
-1. [proguard settings](#10-proguard-settings)
+1. [Done and DoneUi](#5-done-and-doneui)
+1. [Handle multiple Promise objects](#6-handle-multiple-promise-objects)
+1. [Cancel and Timeout](#7-cancel-and-timeout)
+1. [Uncaught Error](#8-uncaught-error)
+1. [Threads](#9-threads)
+1. [Options](#10-options)
+1. [proguard settings](#11-proguard-settings)
 
 ## 1. Create root Promise objects
 There are four ways to create root Promise objects:
@@ -234,7 +235,34 @@ val p4: Promise<Double> = p2.then { // it = "Foo"
 }
 ```
 
-## 5. Handle multiple Promise objects
+## 5. Done and DoneUi
+
+- `promise<T>.done(action: ()-> Unit): Unit`
+- `promise<T>.doneUi(action: ()-> Unit): Unit`
+
+You can use `.done` and `.doneUi` functions to add an action that is invoked after the current Promise object is fulfilled or rejected. It gives an opportunity to move the same code in `.then` and `.catch` to `.done`. For example,
+
+``` kotlin
+// not use done
+promise.thenUi {
+    ...
+    isLoading = false
+}.catchUi{
+    ...
+    isLoading = false
+}
+
+// use done
+promise.thenUi {
+    ...
+}.catchUi{
+    ...
+}.doneUi{
+    isLoading = false
+}
+```
+
+## 6. Handle multiple Promise objects
 
 There are two ways of handling multiple Promise objects:
 
@@ -282,7 +310,7 @@ Promise.race(p1, p2).then {
 }
 ```
 
-## 6. Cancel and Timeout
+## 7. Cancel and Timeout
 PromiseKt supports cancel and timeout: 
 
 - `promise.cancel(throwError: Boolean = false)`
@@ -313,7 +341,7 @@ Promise { resolve, _ ->
 
 By default, if `.timeout` isn't called, Promise objects will run forever until resolved or reject is called.
 
-## 7. Uncaught Error
+## 8. Uncaught Error
 
 If there is a error which isn't caught, then the error passes to `Promise.uncaught`. The default handler logs the error and throws it again. Therefore, by default, if there is an uncaught error, it causes the program to crash. In order to avoid it, you can set your handler to handle uncaught errors. For example:
 
@@ -339,7 +367,7 @@ Promise.uncaughtError = {
 }
 ```
 
-## 8. Threads
+## 9. Threads
 
 Each root Promise object uses its own thread while the children Promise objects use the thread as its parent (unless using one of .thenUi, .thenChainUi or .catchUi to create the children Promise object). For example:
 
@@ -363,7 +391,7 @@ Promise<String> { resolve, reject ->
 }
 ```
 
-## 9. Options
+## 10. Options
 
 By default, if you don't assign a specific option, every Promise object uses the default option and the children Promise objects use the same options as its parent. For example:
 
@@ -383,9 +411,8 @@ Promise<String> (options) { resolve, reject ->
 Promise.defaultOptions.uiExecutor = Executor { command ->  command.run() }
 ```
 
-## 10. proguard settings
-These are the settings for proguard:
-
+## 11. proguard settings
+PromiseKt-Android has the consumer proguard file inside the aar file. Therefore, you don't need to add any settings. However, these are the settings we use
 ```
 -keep class com.swarmnyc.promisekt.** { *; }
 -keep interface com.swarmnyc.promisekt.** { *; }
